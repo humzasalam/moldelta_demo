@@ -1,0 +1,23 @@
+{
+  "id": "brexpiprazole",
+  "smiles": "O=C1C=CC2=CC=C(OCCCCN3CCN(C4=CC=CC=5SC=CC4=5)CC3)C=C2[NH1]1",
+  "name": "Brexpiprazole",
+  "target_name": "5-HT2A Receptor",
+  "generation": 0,
+  "reaction_type": null,
+  "modification": null,
+  "binding_probability": 0.6985454873,
+  "binding_affinity_log10": null,
+  "is_known_binder": false,
+  "literature_source": null,
+  "properties": {
+    "Hepatotoxicity probability": 0.8867847919464111,
+    "Caco2": -4.813960075378418,
+    "Half_Life (h)": 89.9218521118164,
+    "LD50 (nM)": 2.970399618148804,
+    "hERG (nM)": 0.9961524605751038,
+    "MolLogP_unitless": 4.724000000000004,
+    "MolWt (g/mol)": 433.5770000000001,
+    "TPSA (Ang^2)": 48.57
+  }
+}

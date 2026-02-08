@@ -1,0 +1,23 @@
+{
+  "id": "pimavanserin",
+  "smiles": "CC(C)COC1=CC=C(CNC(=O)N(CC2=CC=C(F)C=C2)C3CCN(C)CC3)C=C1",
+  "name": "Pimavanserin",
+  "target_name": "5-HT2A Receptor",
+  "generation": 0,
+  "reaction_type": null,
+  "modification": null,
+  "binding_probability": 0.7731314898,
+  "binding_affinity_log10": null,
+  "is_known_binder": false,
+  "literature_source": null,
+  "properties": {
+    "Hepatotoxicity probability": 0.0003661665541585,
+    "Caco2": -5.095046520233154,
+    "Half_Life (h)": 5.853550910949707,
+    "LD50 (nM)": 2.3318567276000977,
+    "hERG (nM)": 0.9796017408370972,
+    "MolLogP_unitless": 4.6665000000000045,
+    "MolWt (g/mol)": 427.5640000000002,
+    "TPSA (Ang^2)": 44.81
+  }
+}
