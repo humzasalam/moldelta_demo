@@ -1,0 +1,12 @@
+name: moldelta
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - streamlit>=1.28.0
+  - plotly>=5.14.0
+  - pandas>=2.0.0
+  - rdkit>=2022.9.1
+  - numpy>=1.24.0
+  - pillow>=10.0.0
