@@ -118,6 +118,13 @@ def _get_filtered_df():
     displayed_ids = {c["id"] for c in displayed_children}
     df = all_df[all_df["id"].isin(displayed_ids)].copy()
 
+    # Remove molecules with 0 or NaN binding probability
+    if "binding_probability" in df.columns:
+        df = df[
+            (df["binding_probability"].notna()) &
+            (df["binding_probability"] != 0)
+        ].copy()
+
     # Sort by opt_score descending (best first)
     df = df.sort_values("opt_score", ascending=False)
     return df
@@ -164,7 +171,13 @@ def render_control_panel():
         st.rerun()
 
     # ── Number of molecules selector ──
-    max_children = len(st.session_state.children_sets[st.session_state.selected_parent_index])
+    # Count only valid molecules (with non-zero binding probability)
+    all_children = st.session_state.children_sets[st.session_state.selected_parent_index]
+    valid_children = [
+        c for c in all_children
+        if c.get("binding_probability") and c.get("binding_probability") != 0
+    ]
+    max_children = len(valid_children)
     num_options = [n for n in [10, 20, 30, 40, 50] if n <= max_children]
     num_options.append(max_children)
     num_options = sorted(set(num_options))
