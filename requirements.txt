@@ -1,6 +1,6 @@
 streamlit>=1.28.0
 plotly>=5.14.0
 pandas>=2.0.0
-rdkit>=2023.9.1
+rdkit-pypi>=2022.9.1
 numpy>=1.24.0
 pillow>=10.0.0
