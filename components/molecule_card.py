@@ -48,7 +48,7 @@ def render_molecule_card(molecule, parent):
         deltas = molecule.get("delta_properties", {})
 
         lower_is_better = {
-            "Hepatotoxicity probability", "hERG (nM)",
+            "Hepatotoxicity probability",
             "MolLogP_unitless", "MolWt (g/mol)", "TPSA (Ang^2)",
         }
 
