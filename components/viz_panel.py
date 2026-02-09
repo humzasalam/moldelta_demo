@@ -653,7 +653,8 @@ def render_control_panel():
         if not df.empty:
             drop_cols = ["generation", "reaction_type", "modification",
                          "binding_affinity_log10",
-                         "is_known_binder", "literature_source"]
+                         "is_known_binder", "literature_source",
+                         "pareto", "opt_score"]
             export_df = df.drop(columns=[c for c in drop_cols if c in df.columns])
 
             csv_data = export_df.to_csv(index=False).encode("utf-8")
