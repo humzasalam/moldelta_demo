@@ -8,7 +8,7 @@ from utils.theme import NORD, plotly_layout_defaults
 # Human-readable labels for property columns
 PROPERTY_LABELS = {
     "binding_probability": "Binding Strength",
-    "Hepatotoxicity probability": "Liver Safety",
+    "Hepatotoxicity probability": "Hepatotoxicity Risk Score",
     "Caco2": "Gut Absorption",
     "Half_Life (h)": "Half-Life",
     "LD50 (nM)": "Safety Margin (LD50)",

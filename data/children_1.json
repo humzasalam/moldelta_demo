@@ -270,7 +270,7 @@
     "generation": 1,
     "reaction_type": null,
     "modification": null,
-    "binding_probability": null,
+    "binding_probability": 0,
     "binding_affinity_log10": null,
     "delta_properties": {
       "Hepatotoxicity probability": -0.107715985198405,
@@ -1226,7 +1226,7 @@
     "generation": 1,
     "reaction_type": null,
     "modification": null,
-    "binding_probability": null,
+    "binding_probability": 0,
     "binding_affinity_log10": null,
     "delta_properties": {
       "Hepatotoxicity probability": 0.1041324902018951,
@@ -1291,7 +1291,7 @@
     "generation": 1,
     "reaction_type": null,
     "modification": null,
-    "binding_probability": null,
+    "binding_probability": 0,
     "binding_affinity_log10": null,
     "delta_properties": {
       "Hepatotoxicity probability": -0.1663561768700299,
@@ -1620,7 +1620,7 @@
     "generation": 1,
     "reaction_type": null,
     "modification": null,
-    "binding_probability": null,
+    "binding_probability": 0,
     "binding_affinity_log10": null,
     "delta_properties": {
       "Hepatotoxicity probability": 0.1345480855193985,

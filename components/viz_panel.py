@@ -525,15 +525,15 @@ def render_control_panel():
     baseline_cols = st.columns(2)
     with baseline_cols[0]:
         st.metric("Binding Strength", f"{parent.get('binding_probability', 0):.2f}")
-        st.metric("Liver Safety", f"{parent_props.get('Hepatotoxicity probability', 0):.4f}")
+        st.metric("Hepatotoxicity Risk Score", f"{parent_props.get('Hepatotoxicity probability', 0):.4f}")
     with baseline_cols[1]:
         st.metric("Half-Life", f"{parent_props.get('Half_Life (h)', 0):.1f} h")
         st.metric("Heart Safety", f"{parent_props.get('hERG (nM)', 0):.2f} nM")
 
     # ── Advanced Optimization (collapsible) ──
     st.markdown("---")
-    with st.expander("⚙️ Advanced Optimization", expanded=False):
-        st.caption("Optimization objectives. Select properties; each can be Higher/Lower.")
+    with st.expander("Select Optimization Objectives", expanded=False):
+        st.caption("Select properties to optimize.")
 
         # Map property keys to human-readable labels
         property_labels_list = [_label(p) for p in ALL_PROPERTIES]
@@ -552,29 +552,11 @@ def render_control_panel():
         # Convert selected labels back to property keys
         obj_props = [label_to_key[lbl] for lbl in selected_labels]
 
-        obj_dirs_state = st.session_state.get("obj_dirs", {})
-        new_dirs = {}
-        for prop in obj_props:
-            current = obj_dirs_state.get(prop, _best_direction_default(prop))
-            new_dirs[prop] = st.radio(
-                f"{_label(prop)}",
-                ["Higher is better", "Lower is better"],
-                horizontal=True,
-                index=0 if current == "Higher is better" else 1,
-                key=f"obj_dir_{prop}",
-            )
-
-        # Top-K slider
-        top_k_widget_val = st.slider(
-            "Highlight top-K within Pareto",
-            min_value=1, max_value=10,
-            value=int(st.session_state.get("top_k", 1)),
-            key="top_k_slider"
-        )
+        new_dirs = {prop: _best_direction_default(prop) for prop in obj_props}
 
         # Binding guardrail
         st.markdown("")
-        st.caption("Binding probability guardrail: Keep only molecules with binding_probability ≥ threshold")
+        st.caption("Only keep molecules above the binding probability threshold")
         prev_enabled = bool(st.session_state.get("bp_guard_enabled", False))
         prev_value = float(st.session_state.get("bp_guard_value", 0.50))
 
@@ -604,42 +586,18 @@ def render_control_panel():
         # Detect changes
         changed = (
             set(obj_props) != set(st.session_state.get("obj_props", []))
-            or any(st.session_state.get("obj_dirs", {}).get(k) != v for k, v in new_dirs.items())
-            or int(top_k_widget_val) != int(st.session_state.get("top_k", 1))
             or bool(enabled_widget) != prev_enabled
             or abs(float(txt_float) - float(prev_value)) > 1e-12
         )
 
         st.session_state.obj_props = obj_props
         st.session_state.obj_dirs = new_dirs
-        st.session_state.top_k = int(top_k_widget_val)
+        st.session_state.top_k = 1
 
         if changed:
             st.session_state.pareto_ids = []
             st.session_state.topk_ids = []
             st.session_state.selected_molecule_id = None
-            st.session_state.tracked_ids = set()  # Clear tracked molecules when guardrail changes
-            st.rerun()
-
-    # ── Tracked controls ──
-    st.markdown("---")
-    cols_trk = st.columns(2)
-    with cols_trk[0]:
-        if st.button("Clear Tracked", use_container_width=True):
-            st.session_state.tracked_ids = set()
-            st.session_state.selected_molecule_id = None
-            st.rerun()
-    with cols_trk[1]:
-        sel = st.session_state.get("selected_molecule_id")
-        tracked = set(st.session_state.get("tracked_ids", set()))
-        label = "Track Selected" if (sel and sel not in tracked) else "Untrack Selected"
-        if st.button(label, use_container_width=True, disabled=sel is None):
-            s = set(tracked)
-            if sel in s:
-                s.remove(sel)
-            else:
-                s.add(sel)
-            st.session_state.tracked_ids = s
             st.rerun()
 
     # ── Export ──
@@ -652,6 +610,10 @@ def render_control_panel():
                          "is_known_binder", "literature_source",
                          "pareto", "opt_score"]
             export_df = df.drop(columns=[c for c in drop_cols if c in df.columns])
+            if "Hepatotoxicity probability" in export_df.columns:
+                export_df = export_df.rename(columns={"Hepatotoxicity probability": "Hepatotoxicity Risk Score"})
+            if "delta_Hepatotoxicity probability" in export_df.columns:
+                export_df = export_df.rename(columns={"delta_Hepatotoxicity probability": "delta_Hepatotoxicity Risk Score"})
 
             csv_data = export_df.to_csv(index=False).encode("utf-8")
             st.download_button("Export CSV", data=csv_data,
@@ -776,7 +738,6 @@ def _render_animated_enumeration():
         chart_placeholder.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         # UI overlay with dynamic phase text
-        current_best = subset_scored["opt_score"].max() if "opt_score" in subset_scored.columns else 0
         progress_percent = (end_idx / total) * 100
 
         if progress_percent < 30:
@@ -806,11 +767,8 @@ def _render_animated_enumeration():
                 <div style="font-size: 0.95rem; color: #D8DEE9; margin-bottom: 1.2rem;">
                     Molecules processed: {end_idx} / {total}
                 </div>
-                <div style="width: 100%; height: 8px; background: #3B4252; border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem;">
+                <div style="width: 100%; height: 8px; background: #3B4252; border-radius: 4px; overflow: hidden;">
                     <div style="height: 100%; width: {progress_percent}%; background: linear-gradient(90deg, #5E81AC 0%, #81A1C1 100%); border-radius: 4px; transition: width 0.3s ease;"></div>
-                </div>
-                <div style="font-size: 0.9rem; color: #88C0D0; margin-top: 0.3rem;">
-                    Best score: {current_best:.1f}/10
                 </div>
             </div>
             """,
@@ -823,15 +781,33 @@ def _render_animated_enumeration():
     # ── Post-animation summary flash ──
     parent = st.session_state.parent_data
     parent_props = parent.get("properties", {})
-    parent_binding = parent.get("binding_probability", 0)
-    parent_hepato = parent_props.get("Hepatotoxicity probability", 0)
     total_candidates = len(df)
 
-    binding_improved = int((df["binding_probability"] > parent_binding).sum()) if "binding_probability" in df.columns else 0
-    hepato_improved = int((df["Hepatotoxicity probability"] < parent_hepato).sum()) if "Hepatotoxicity probability" in df.columns else 0
-    both_improved = 0
-    if "binding_probability" in df.columns and "Hepatotoxicity probability" in df.columns:
-        both_improved = int(((df["binding_probability"] > parent_binding) & (df["Hepatotoxicity probability"] < parent_hepato)).sum())
+    # Count candidates that improve on selected objectives
+    obj_props = st.session_state.get("obj_props", [])
+    obj_dirs = st.session_state.get("obj_dirs", {})
+    improved_count = 0
+    if obj_props:
+        improve_mask = pd.Series(True, index=df.index)
+        for prop in obj_props:
+            direction = obj_dirs.get(prop, _best_direction_default(prop))
+            if prop == "binding_probability":
+                parent_val = parent.get("binding_probability", 0)
+            else:
+                parent_val = parent_props.get(prop, 0)
+            if prop in df.columns:
+                if direction == "Higher is better":
+                    improve_mask &= df[prop] > parent_val
+                else:
+                    improve_mask &= df[prop] < parent_val
+        improved_count = int(improve_mask.sum())
+
+    improved_line = ""
+    if obj_props:
+        improved_line = f"""
+            <div style="font-size: 1.1rem; color: #EBCB8B; margin-top: 0.6rem; font-weight: 600;">
+                <b>{improved_count}</b> candidates improve on selected objectives
+            </div>"""
 
     overlay_placeholder.markdown(
         f"""
@@ -846,36 +822,13 @@ def _render_animated_enumeration():
             </div>
             <div style="font-size: 1.1rem; color: #ECEFF4; margin-bottom: 0.6rem;">
                 <b>{total_candidates}</b> candidates generated
-            </div>
-            <div style="font-size: 1rem; color: #88C0D0; margin-bottom: 0.3rem;">
-                <b>{binding_improved}</b> improve binding strength
-            </div>
-            <div style="font-size: 1rem; color: #8FBCBB; margin-bottom: 0.3rem;">
-                <b>{hepato_improved}</b> reduce liver toxicity
-            </div>
-            <div style="font-size: 1.1rem; color: #EBCB8B; margin-top: 0.6rem; font-weight: 600;">
-                <b>{both_improved}</b> improve BOTH
-            </div>
+            </div>{improved_line}
         </div>
         """,
         unsafe_allow_html=True
     )
     time.sleep(2.5)
     overlay_placeholder.empty()
-
-    # ── Auto-select default objectives ──
-    if not st.session_state.get("obj_props"):
-        default_props = ["binding_probability", "Hepatotoxicity probability", "Half_Life (h)"]
-        st.session_state.obj_props = default_props
-        st.session_state.obj_dirs = {
-            "binding_probability": "Higher is better",
-            "Hepatotoxicity probability": "Lower is better",
-            "Half_Life (h)": "Higher is better",
-        }
-        st.session_state.top_k = 1
-        # Delete the widget key so it re-initializes with our defaults
-        if "obj_props_selector" in st.session_state:
-            del st.session_state["obj_props_selector"]
 
     st.session_state.enumeration_completed = True
     st.session_state.flow_step = "RESULTS"
@@ -917,6 +870,7 @@ def _render_hero_card(df_scored, topk_ids, parent):
     if best_row.empty:
         return
     best = best_row.iloc[0]
+    best_id = best.get("id", "")
 
     parent_props = parent.get("properties", {})
     parent_binding = parent.get("binding_probability", 0)
@@ -955,7 +909,7 @@ def _render_hero_card(df_scored, topk_ids, parent):
         sign = "+" if pct > 0 else ""
         stat_parts.append(
             f'<span style="color:{color}; font-size:1.05rem; font-weight:700; '
-            f'margin-right:1.2rem;">{sign}{pct:.0f}% {label}</span>'
+            f'margin-right:1.2rem;">{sign}{pct:.1f}% {label}</span>'
         )
 
     stats_html = " ".join(stat_parts)
@@ -1002,8 +956,6 @@ def _render_results_viz():
     x_axis = st.session_state.get("x_axis", "Half_Life (h)")
     y_axis = st.session_state.get("y_axis", "hERG (nM)")
 
-    tracked_ids = set(st.session_state.get("tracked_ids", set()))
-
     animate_axes = _axes_changed(x_axis, y_axis)
 
     # Base scatter
@@ -1030,20 +982,6 @@ def _render_results_viz():
                 symbol="circle-open",
                 size=20,
                 line=dict(color="#EBCB8B", width=4)
-            ),
-            name=""
-        ))
-
-    # ---- Tracked (manual) blue inner ring (SVG) ----
-    if tracked_ids:
-        tr = df_scored[df_scored["id"].isin(tracked_ids)]
-        fig.add_trace(go.Scatter(
-            x=tr[x_axis], y=tr[y_axis], mode="markers", hoverinfo="skip",
-            showlegend=False, cliponaxis=False,
-            marker=dict(
-                symbol="circle-open",
-                size=14,  # smaller than Top-K halo
-                line=dict(color="#88C0D0", width=3)
             ),
             name=""
         ))
@@ -1078,20 +1016,12 @@ def _render_results_viz():
             st.session_state.selected_molecule_id = None
             st.rerun()
 
-    # Manual selection toggling (track/untrack)
+    # Click opens molecule dialog directly
     clicked_id = _resolve_clicked_id(event, df_scored)
     if clicked_id:
-        if clicked_id in tracked_ids:
-            tracked_ids.remove(clicked_id)
-            st.session_state.tracked_ids = set(tracked_ids)
-            st.session_state.selected_molecule_id = None
-        else:
-            tracked_ids.add(clicked_id)
-            st.session_state.tracked_ids = set(tracked_ids)
-            st.session_state.selected_molecule_id = clicked_id
+        st.session_state.selected_molecule_id = clicked_id
         st.rerun()
 
-    # Open molecule dialog only on new selection
     sel_id = st.session_state.get("selected_molecule_id", None)
     if sel_id and sel_id in df_scored["id"].values:
         mol_row = df_scored[df_scored["id"] == sel_id].iloc[0].to_dict()
