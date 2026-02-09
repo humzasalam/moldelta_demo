@@ -537,11 +537,21 @@ def render_control_panel():
     # ── Advanced Optimization (collapsible) ──
     st.markdown("---")
     with st.expander("⚙️ Advanced Optimization", expanded=False):
-        st.caption("Optimization objectives. Choose up to 4; each can be Higher/Lower.")
+        st.caption("Optimization objectives. Select properties; each can be Higher/Lower.")
 
         # Map property keys to human-readable labels
         property_labels_list = [_label(p) for p in ALL_PROPERTIES]
         label_to_key = {_label(p): p for p in ALL_PROPERTIES}
+
+        # "Select All" button
+        obj_cols = st.columns([3, 1])
+        with obj_cols[1]:
+            if st.button("Select All", use_container_width=True, key="select_all_objectives"):
+                st.session_state.obj_props = ALL_PROPERTIES.copy()
+                st.session_state.pareto_ids = []
+                st.session_state.topk_ids = []
+                st.session_state.selected_molecule_id = None
+                st.rerun()
 
         default_obj = st.session_state.get("obj_props", [])
         default_labels = [_label(p) for p in default_obj if p in ALL_PROPERTIES]
@@ -550,7 +560,6 @@ def render_control_panel():
             "Objectives",
             options=property_labels_list,
             default=default_labels,
-            max_selections=4,
             key="obj_props_selector",
         )
 
