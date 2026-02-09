@@ -21,15 +21,18 @@ def render_molecule_card(molecule, parent):
     img_col, deltas_col = st.columns([1, 2])
 
     with img_col:
-        # Parent molecule (plain render)
-        st.caption("Parent")
-        parent_png = smiles_to_png(parent_smiles, size=(520, 390))
-        st.image(parent_png, use_container_width=True)
+        try:
+            # Parent molecule (plain render)
+            st.caption("Parent")
+            parent_png = smiles_to_png(parent_smiles, size=(520, 390))
+            st.image(parent_png, use_container_width=True)
 
-        # Child molecule (with diff highlighting)
-        st.caption("Child")
-        child_png = highlight_diff_png(parent_smiles, child_smiles, size=(520, 390))
-        st.image(child_png, use_container_width=True)
+            # Child molecule (with diff highlighting)
+            st.caption("Child")
+            child_png = highlight_diff_png(parent_smiles, child_smiles, size=(520, 390))
+            st.image(child_png, use_container_width=True)
+        except Exception:
+            st.warning("Could not render molecule structures.")
 
         st.markdown(
             f'<div class="smiles-display" style="font-size: 0.75rem;">{child_smiles}</div>',

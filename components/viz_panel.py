@@ -983,6 +983,7 @@ def _render_results_viz():
 
     event = st.plotly_chart(
         fig, key="main_scatter", on_select="rerun",
+        selection_mode=["points"],
         use_container_width=True, config={'displayModeBar': False}
     )
 
@@ -1011,13 +1012,9 @@ def _render_results_viz():
             st.session_state.selected_molecule_id = None
             st.rerun()
 
-    # Click opens molecule dialog directly (no extra rerun — on_select already triggered one)
+    # Click opens molecule dialog
     clicked_id = _resolve_clicked_id(event, df_scored)
-    if clicked_id:
-        st.session_state.selected_molecule_id = clicked_id
-
-    sel_id = st.session_state.get("selected_molecule_id", None)
-    if sel_id and sel_id in df_scored["id"].values:
-        mol_row = df_scored[df_scored["id"] == sel_id].iloc[0].to_dict()
+    if clicked_id and clicked_id in df_scored["id"].values:
+        mol_row = df_scored[df_scored["id"] == clicked_id].iloc[0].to_dict()
         parent = st.session_state.parent_data
         show_molecule_dialog(mol_row, parent)
