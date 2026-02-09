@@ -873,8 +873,9 @@ def _render_animated_enumeration():
             "Half_Life (h)": "Higher is better",
         }
         st.session_state.top_k = 1
-        # Sync the multiselect widget key so it picks up defaults
-        st.session_state["obj_props_selector"] = [_label(p) for p in default_props]
+        # Delete the widget key so it re-initializes with our defaults
+        if "obj_props_selector" in st.session_state:
+            del st.session_state["obj_props_selector"]
 
     st.session_state.enumeration_completed = True
     st.session_state.flow_step = "RESULTS"
