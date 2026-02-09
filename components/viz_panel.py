@@ -500,7 +500,7 @@ def render_control_panel():
 
     # ── Logo + title ──
     st.markdown('<div class="moldelta-logo">MolDelta</div>', unsafe_allow_html=True)
-    st.markdown('<div class="tagline">AI-Powered Lead Optimization</div>', unsafe_allow_html=True)
+    st.markdown('<div class="tagline">AI-guided chemical edits for faster drug design</div>', unsafe_allow_html=True)
     target_name = parent.get("target_name", "Target")
     parent_smiles = parent.get("smiles", "")
     st.markdown(
