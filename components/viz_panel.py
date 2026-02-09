@@ -291,8 +291,6 @@ def _get_filtered_df() -> pd.DataFrame:
     df = all_df[all_df["id"].isin(displayed_ids)].copy()
     df["__ord"] = df.index
     df = df.sort_values("__ord").drop(columns="__ord")
-    # Apply binding guardrail: remove molecules below threshold from display
-    df = _apply_binding_guardrail(df)
     return df
 
 
