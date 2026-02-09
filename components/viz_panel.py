@@ -236,21 +236,18 @@ def _nondominated_sort(X: np.ndarray) -> list[list[int]]:
 
 
 def _apply_binding_guardrail(df: pd.DataFrame) -> pd.DataFrame:
-    """Filter by binding_probability >= threshold if guardrail is enabled."""
-    if "binding_probability" not in df.columns:
-        return df
+    """Filter out molecules below the binding probability threshold."""
     if not st.session_state.get("bp_guard_enabled", False):
         return df
-    try:
-        thr = float(st.session_state.get("bp_guard_value", 0.0))
-    except Exception:
-        thr = 0.0
-    return df[df["binding_probability"] >= thr].copy()
+    if "binding_probability" not in df.columns:
+        return df
+    threshold = float(st.session_state.get("bp_guard_value", 0.50))
+    return df[df["binding_probability"] >= threshold].copy()
 
 
 def _compute_scores_and_pareto(df: pd.DataFrame, props: list[str], directions: list[str]) -> pd.DataFrame:
-    """Compute opt_score and Pareto flag given objectives/directions and guardrail."""
-    df_local = _apply_binding_guardrail(df)
+    """Compute opt_score and Pareto flag given objectives/directions."""
+    df_local = _apply_binding_guardrail(df.copy())
     df_local["opt_score"] = _rank_sum_score(df_local, props, directions)
     X = _objective_matrix(df_local, props, directions)
     mask = _pareto_mask_multiobj(X)
@@ -307,7 +304,7 @@ def _axes_changed(new_x: str, new_y: str) -> bool:
 
 
 def _compute_and_cache_highlights(df: pd.DataFrame):
-    """Compute Pareto + Top-K with multi-front support; store lists; return them with scored df."""
+    """Compute Pareto + Top-K (first front only, K is a cap); store lists; return them with scored df."""
     obj_props = st.session_state.get("obj_props", [])
     obj_dirs = st.session_state.get("obj_dirs", {})
     directions = [obj_dirs.get(p, _best_direction_default(p)) for p in obj_props]
@@ -322,49 +319,46 @@ def _compute_and_cache_highlights(df: pd.DataFrame):
         st.session_state.topk_ids = []
         return [], [], df2
 
+    # Eligible molecules (passed binding guardrail)
+    df_eligible = _apply_binding_guardrail(df2)
+    if df_eligible.empty:
+        st.session_state.pareto_ids = []
+        st.session_state.topk_ids = []
+        return [], [], df2
+
     # Case B: Single objective
     if len(obj_props) == 1:
         prop = obj_props[0]
         direction = directions[0]
 
-        # Get scoring column
-        score_col = _score_column_for(prop, df2)
+        score_col = _score_column_for(prop, df_eligible)
 
-        # Ensure tie-breaker columns exist
         for col in ["binding_probability", "TPSA (Ang^2)"]:
-            if col not in df2.columns:
-                df2[col] = 0.0
+            if col not in df_eligible.columns:
+                df_eligible[col] = 0.0
 
-        # Sort by property (direction-aware) + tie-breakers
         ascending = (direction == "Lower is better")
-        sorted_df = df2.sort_values(
+        sorted_df = df_eligible.sort_values(
             by=[score_col, "binding_probability", "TPSA (Ang^2)"],
             ascending=[ascending, False, True],
             kind="mergesort",
         )
 
-        # Top-K molecules
-        topk_ids = sorted_df["id"].head(k).tolist()
-
-        # Pareto = all molecules with best value (handles ties)
+        # Pareto = all molecules tied at the best value
         best_val = sorted_df[score_col].iloc[0]
-        if direction == "Lower is better":
-            pareto_ids = sorted_df[sorted_df[score_col] == best_val]["id"].tolist()
-        else:
-            pareto_ids = sorted_df[sorted_df[score_col] == best_val]["id"].tolist()
+        pareto_ids = sorted_df[sorted_df[score_col] == best_val]["id"].tolist()
 
-        # Mark pareto column
+        # Top-K: only molecules tied for best, capped at K
+        topk_ids = sorted_df[sorted_df[score_col] == best_val]["id"].head(k).tolist()
+
         df2["pareto"] = df2["id"].isin(pareto_ids)
 
         st.session_state.pareto_ids = pareto_ids
         st.session_state.topk_ids = topk_ids
         return pareto_ids, topk_ids, df2
 
-    # Case C: Multiple objectives (≥2)
-    # Build objective matrix
-    X = _objective_matrix(df2, obj_props, directions)
-
-    # Non-dominated sorting to get all fronts
+    # Case C: Multiple objectives (≥2) — first front only, K is a cap
+    X = _objective_matrix(df_eligible, obj_props, directions)
     fronts = _nondominated_sort(X)
 
     if not fronts:
@@ -372,15 +366,13 @@ def _compute_and_cache_highlights(df: pd.DataFrame):
         st.session_state.topk_ids = []
         return [], [], df2
 
-    # First front = Pareto-optimal (semantic meaning)
     first_front_indices = fronts[0]
-    pareto_ids = df2.iloc[first_front_indices]["id"].tolist()
+    pareto_ids = df_eligible.iloc[first_front_indices]["id"].tolist()
     df2["pareto"] = df2["id"].isin(pareto_ids)
 
-    # Fill up to K by stacking fronts
+    # Sort first-front molecules by tie-breakers, cap at K
     def _front_sorted_ids(indices: list[int]) -> list[str]:
-        """Sort molecules within a front by deterministic tie-breaker."""
-        sub = df2.iloc[indices].copy()
+        sub = df_eligible.iloc[indices].copy()
         for col in ["binding_probability", "TPSA (Ang^2)"]:
             if col not in sub.columns:
                 sub[col] = 0.0
@@ -391,15 +383,7 @@ def _compute_and_cache_highlights(df: pd.DataFrame):
         )
         return sub["id"].tolist()
 
-    pick_ids = []
-    for front_indices in fronts:
-        sorted_ids = _front_sorted_ids(front_indices)
-        pick_ids.extend(sorted_ids)
-        if len(pick_ids) >= k:
-            break
-
-    # Truncate to exactly K
-    topk_ids = pick_ids[:k]
+    topk_ids = _front_sorted_ids(first_front_indices)[:k]
 
     st.session_state.pareto_ids = pareto_ids
     st.session_state.topk_ids = topk_ids
