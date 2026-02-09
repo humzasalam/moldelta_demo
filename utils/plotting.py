@@ -7,15 +7,15 @@ from utils.theme import NORD, plotly_layout_defaults
 
 # Human-readable labels for property columns
 PROPERTY_LABELS = {
-    "binding_probability": "Binding Probability (higher=better)",
-    "Hepatotoxicity probability": "Hepatotoxicity Risk (lower=safer)",
-    "Caco2": "Gut Absorption (higher=better)",
-    "Half_Life (h)": "Half-Life (h) (higher=longer)",
-    "LD50 (nM)": "Lethal Dose LD50 in nM (higher=safer)",
-    "hERG (nM)": "hERG IC50 in nM (higher=safer)",
-    "MolLogP_unitless": "Lipophilicity LogP (lower=better)",
-    "MolWt (g/mol)": "Mol. Weight in g/mol (lower=better)",
-    "TPSA (Ang^2)": "Overall Polarity TPSA \u00c5\u00b2 (lower=better)",
+    "binding_probability": "Binding Probability \u2191",
+    "Hepatotoxicity probability": "Hepatotoxicity Risk \u2193",
+    "Caco2": "Gut Absorption \u2191",
+    "Half_Life (h)": "Half-Life (h) \u2191",
+    "LD50 (nM)": "Lethal Dose LD50 (nM) \u2191",
+    "hERG (nM)": "hERG IC50 (nM) \u2191",
+    "MolLogP_unitless": "Lipophilicity (LogP)",
+    "MolWt (g/mol)": "Mol. Weight (g/mol)",
+    "TPSA (Ang^2)": "Overall Polarity TPSA (\u00c5\u00b2)",
     "opt_score": "Optimization Score",
 }
 

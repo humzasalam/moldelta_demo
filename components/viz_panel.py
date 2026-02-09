@@ -303,6 +303,37 @@ def _axes_changed(new_x: str, new_y: str) -> bool:
     return changed
 
 
+def _best_improved_id(df: pd.DataFrame, obj_props: list[str], obj_dirs: dict) -> str | None:
+    """Find the candidate that improves on ALL selected objectives vs parent.
+
+    Returns the id of the best such candidate (by opt_score), or None if none improve on all.
+    """
+    if not obj_props or df.empty:
+        return None
+    parent = st.session_state.parent_data
+    parent_props = parent.get("properties", {})
+
+    improve_mask = pd.Series(True, index=df.index)
+    for prop in obj_props:
+        direction = obj_dirs.get(prop, _best_direction_default(prop))
+        if prop == "binding_probability":
+            parent_val = parent.get("binding_probability", 0)
+        else:
+            parent_val = parent_props.get(prop, 0)
+        if prop in df.columns:
+            if direction == "Higher is better":
+                improve_mask &= df[prop] > parent_val
+            else:
+                improve_mask &= df[prop] < parent_val
+
+    improved = df[improve_mask]
+    if improved.empty:
+        return None
+    if "opt_score" in improved.columns:
+        return improved.nlargest(1, "opt_score")["id"].iloc[0]
+    return improved["id"].iloc[0]
+
+
 def _compute_and_cache_highlights(df: pd.DataFrame):
     """Compute Pareto + Top-K (first front only, K is a cap); store lists; return them with scored df."""
     obj_props = st.session_state.get("obj_props", [])
@@ -356,6 +387,11 @@ def _compute_and_cache_highlights(df: pd.DataFrame):
         # Top-K: best eligible molecules, capped at K
         topk_ids = sorted_df["id"].head(k).tolist()
 
+        # Prefer a candidate that improves on ALL objectives vs parent
+        best_imp = _best_improved_id(df2, obj_props, obj_dirs)
+        if best_imp and best_imp != topk_ids[0]:
+            topk_ids = [best_imp]
+
         df2["pareto"] = df2["id"].isin(pareto_ids)
 
         st.session_state.pareto_ids = pareto_ids
@@ -389,6 +425,11 @@ def _compute_and_cache_highlights(df: pd.DataFrame):
         return sub["id"].tolist()
 
     topk_ids = _front_sorted_ids(first_front_indices)[:k]
+
+    # Prefer a candidate that improves on ALL objectives vs parent
+    best_imp = _best_improved_id(df2, obj_props, obj_dirs)
+    if best_imp and best_imp != topk_ids[0]:
+        topk_ids = [best_imp]
 
     st.session_state.pareto_ids = pareto_ids
     st.session_state.topk_ids = topk_ids
