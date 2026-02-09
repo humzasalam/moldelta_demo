@@ -3,7 +3,7 @@
 import streamlit as st
 
 from utils.theme import NORD
-from utils.mol_render import highlight_diff_image, smiles_to_image
+from utils.mol_render import highlight_diff_image, smiles_to_image, smiles_to_png, highlight_diff_png
 
 
 def render_molecule_card(molecule, parent):
@@ -22,13 +22,13 @@ def render_molecule_card(molecule, parent):
     with img_col:
         # Parent molecule (plain render)
         st.caption("Parent")
-        parent_img = smiles_to_image(parent_smiles, size=(600, 450))
-        st.image(parent_img, use_container_width=True)
+        parent_png = smiles_to_png(parent_smiles, size=(520, 390))
+        st.image(parent_png, use_container_width=True)
 
         # Child molecule (with diff highlighting)
         st.caption("Child")
-        child_img = highlight_diff_image(parent_smiles, child_smiles, size=(600, 450))
-        st.image(child_img, use_container_width=True)
+        child_png = highlight_diff_png(parent_smiles, child_smiles, size=(520, 390))
+        st.image(child_png, use_container_width=True)
 
         st.markdown(
             f'<div class="smiles-display" style="font-size: 0.75rem;">{child_smiles}</div>',

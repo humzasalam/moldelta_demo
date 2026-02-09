@@ -54,8 +54,17 @@ def init_session_state():
         "selected_molecule_id": None,
         "x_axis": "binding_probability",
         "y_axis": "hERG (nM)",
-        "top_ids": [],
+        "top_ids": [],  # Legacy key (kept for backward compat)
         "enumeration_completed": False,
+        # Advanced optimization features
+        "obj_props": [],
+        "obj_dirs": {},
+        "bp_guard_enabled": False,
+        "bp_guard_value": 0.50,
+        "tracked_ids": set(),
+        "pareto_ids": [],
+        "topk_ids": [],
+        "top_k": 1,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
