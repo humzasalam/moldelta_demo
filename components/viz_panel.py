@@ -513,8 +513,8 @@ def render_control_panel():
 
     # ── Step indicator ──
     # Track which steps are completed via session state
-    parent_selected = st.session_state.get("parent_selector") is not None
-    num_selected = st.session_state.get("num_selector") is not None
+    parent_selected = st.session_state.get("parent_touched", False)
+    num_selected = st.session_state.get("count_touched", False)
     generated = st.session_state.get("enumeration_completed", False)
     objectives_set = len(st.session_state.get("obj_props", [])) > 0
 
@@ -538,29 +538,32 @@ def render_control_panel():
     parent_touched = st.session_state.get("parent_touched", False)
     count_touched = st.session_state.get("count_touched", False)
 
-    # ── Parent selector (always enabled) ──
+    # ── Parent selector (always enabled, placeholder until selected) ──
     parent_names = [p.get("name", f"Parent {i+1}") for i, p in enumerate(parents)]
+    parent_index = st.session_state.selected_parent_index if parent_touched else None
     selected_parent = st.selectbox(
         "Parent Molecule",
         parent_names,
-        index=st.session_state.selected_parent_index,
+        index=parent_index,
+        placeholder="Select a parent",
         key="parent_selector"
     )
-    new_idx = parent_names.index(selected_parent)
-    if new_idx != st.session_state.selected_parent_index:
-        st.session_state.selected_parent_index = new_idx
-        st.session_state.parent_data = parents[new_idx]
-        st.session_state.children_data = st.session_state.children_sets[new_idx]
-        st.session_state.parent_touched = True
-        st.session_state.count_touched = False
-        # Reset highlights/state to avoid bleed-through
-        st.session_state.tracked_ids = set()
-        st.session_state.pareto_ids = []
-        st.session_state.topk_ids = []
-        st.session_state.selected_molecule_id = None
-        st.session_state.flow_step = "WELCOME"
-        st.session_state.enumeration_completed = False
-        st.rerun()
+    if selected_parent is not None:
+        new_idx = parent_names.index(selected_parent)
+        if not parent_touched or new_idx != st.session_state.selected_parent_index:
+            st.session_state.selected_parent_index = new_idx
+            st.session_state.parent_data = parents[new_idx]
+            st.session_state.children_data = st.session_state.children_sets[new_idx]
+            st.session_state.parent_touched = True
+            st.session_state.count_touched = False
+            # Reset highlights/state to avoid bleed-through
+            st.session_state.tracked_ids = set()
+            st.session_state.pareto_ids = []
+            st.session_state.topk_ids = []
+            st.session_state.selected_molecule_id = None
+            st.session_state.flow_step = "WELCOME"
+            st.session_state.enumeration_completed = False
+            st.rerun()
 
     # ── Number of molecules (gated on parent) ──
     max_children = len(st.session_state.children_sets[st.session_state.selected_parent_index])
@@ -568,18 +571,28 @@ def render_control_panel():
     num_options.append(max_children)
     num_options = sorted(set(num_options))
     display_options = [str(n) if n != max_children else f"All ({max_children})" for n in num_options]
+    count_index = None  # placeholder until user selects
+    if count_touched:
+        # Find index matching current num_to_generate
+        cur_num = st.session_state.get("num_to_generate", 20)
+        cur_label = str(cur_num) if cur_num != max_children else f"All ({max_children})"
+        if cur_label in display_options:
+            count_index = display_options.index(cur_label)
     selected_num = st.selectbox(
         "# Molecules",
         display_options,
-        index=min(1, len(display_options) - 1),
+        index=count_index,
+        placeholder="Select number",
         key="num_selector",
         disabled=not parent_touched,
     )
-    new_num = max_children if selected_num.startswith("All") else int(selected_num)
-    if new_num != st.session_state.get("num_to_generate", 20):
+    if selected_num is not None:
+        new_num = max_children if selected_num.startswith("All") else int(selected_num)
         st.session_state.num_to_generate = new_num
-        st.session_state.count_touched = True
-        st.session_state.selected_molecule_id = None
+        if not count_touched:
+            st.session_state.count_touched = True
+            st.session_state.selected_molecule_id = None
+            st.rerun()
 
     # ── Optimization Objectives (gated on count) ──
     property_labels_list = [_label(p) for p in ALL_PROPERTIES]
@@ -867,10 +880,24 @@ def _resolve_clicked_id(event, df_scored: pd.DataFrame):
             mol_id = data[0] if isinstance(data, (list, tuple)) else data
             if mol_id in df_scored["id"].values:
                 return mol_id
-        # Fall back to point_index on the base trace (curve_number 0)
-        idx = point.get("point_index", point.get("pointIndex"))
-        if idx is not None and idx < len(df_scored):
-            return df_scored.iloc[idx]["id"]
+
+        # Fall back to point_index but ONLY for the base trace (curve_number 0)
+        curve = point.get("curve_number", point.get("curveNumber", 0))
+        if curve == 0:
+            idx = point.get("point_index", point.get("pointIndex"))
+            if idx is not None and idx < len(df_scored):
+                return df_scored.iloc[idx]["id"]
+
+        # For overlay traces (curve > 0), match by x/y coordinates
+        x_val = point.get("x")
+        y_val = point.get("y")
+        if x_val is not None and y_val is not None:
+            x_col = st.session_state.get("x_axis", "Half_Life (h)")
+            y_col = st.session_state.get("y_axis", "hERG (nM)")
+            if x_col in df_scored.columns and y_col in df_scored.columns:
+                dist = (df_scored[x_col] - x_val).abs() + (df_scored[y_col] - y_val).abs()
+                closest_idx = dist.idxmin()
+                return df_scored.loc[closest_idx, "id"]
 
     if point_indices:
         idx = point_indices[0]
