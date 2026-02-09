@@ -523,18 +523,6 @@ def render_control_panel():
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── Parent Baseline ──
-    st.markdown("---")
-    st.markdown("**Parent Baseline**")
-    parent_props = parent.get("properties", {})
-    baseline_cols = st.columns(2)
-    with baseline_cols[0]:
-        st.metric("Binding Strength", f"{parent.get('binding_probability', 0):.2f}")
-        st.metric("Hepatotoxicity Risk Score", f"{parent_props.get('Hepatotoxicity probability', 0):.4f}")
-    with baseline_cols[1]:
-        st.metric("Half-Life", f"{parent_props.get('Half_Life (h)', 0):.1f} h")
-        st.metric("Heart Safety", f"{parent_props.get('hERG (nM)', 0):.2f} nM")
-
     # ── Advanced Optimization (collapsible) ──
     st.markdown("---")
     with st.expander("Select Optimization Objectives", expanded=False):
