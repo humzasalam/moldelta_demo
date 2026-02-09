@@ -100,6 +100,3 @@ def show_molecule_dialog(molecule, parent):
         parent: Dict with the parent molecule data.
     """
     render_molecule_card(molecule, parent)
-    if st.button("Close", use_container_width=True):
-        st.session_state.selected_molecule_id = None
-        st.rerun()

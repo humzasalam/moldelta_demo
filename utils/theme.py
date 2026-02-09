@@ -283,6 +283,68 @@ def inject_custom_css():
         .enum-overlay {{
             animation: pulse-glow 2s ease-in-out infinite;
         }}
+
+        /* ── Tagline ── */
+        .tagline {{
+            font-size: 0.8rem;
+            color: {NORD["frost_2"]};
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.6rem;
+            margin-top: -0.1rem;
+        }}
+
+        /* ── Step indicator ── */
+        .step-indicator {{
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            margin-bottom: 0.8rem;
+            padding: 0.5rem 0;
+        }}
+        .step-badge {{
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 0.25rem 0.6rem;
+            border-radius: 12px;
+            transition: all 0.25s ease;
+        }}
+        .step-badge.active {{
+            background: {NORD["frost_2"]};
+            color: {NORD["snow_2"]};
+        }}
+        .step-badge.inactive {{
+            background: {NORD["bg_panel"]};
+            color: {NORD["bg_light"]};
+        }}
+        .step-badge.completed {{
+            background: {NORD["aurora_green"]};
+            color: {NORD["bg_dark"]};
+        }}
+        .step-arrow {{
+            color: {NORD["bg_light"]};
+            font-size: 0.7rem;
+        }}
+
+        /* ── Control card ── */
+        .control-card {{
+            background-color: {NORD["bg_panel"]};
+            border: 1px solid {NORD["bg_light"]};
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }}
+
+        /* ── Hint text ── */
+        .hint-text {{
+            font-size: 0.75rem;
+            color: {NORD["bg_light"]};
+            text-align: center;
+            margin-top: 0.4rem;
+        }}
         </style>
         """,
         unsafe_allow_html=True,

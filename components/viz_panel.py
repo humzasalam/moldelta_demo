@@ -459,6 +459,7 @@ def render_control_panel():
 
     # ── Logo + title ──
     st.markdown('<div class="moldelta-logo">MolDelta</div>', unsafe_allow_html=True)
+    st.markdown('<div class="tagline">AI-Powered Lead Optimization</div>', unsafe_allow_html=True)
     target_name = parent.get("target_name", "Target")
     parent_smiles = parent.get("smiles", "")
     st.markdown(
@@ -468,6 +469,29 @@ def render_control_panel():
     )
 
     st.markdown("---")
+
+    # ── Step indicator ──
+    # Track which steps are completed via session state
+    parent_selected = st.session_state.get("parent_selector") is not None
+    num_selected = st.session_state.get("num_selector") is not None
+    generated = st.session_state.get("enumeration_completed", False)
+    objectives_set = len(st.session_state.get("obj_props", [])) > 0
+
+    def _step_cls(done):
+        return "completed" if done else "inactive"
+
+    st.markdown(
+        f"""<div class="step-indicator">
+            <span class="step-badge {_step_cls(parent_selected)}">1 Parent</span>
+            <span class="step-arrow">&rarr;</span>
+            <span class="step-badge {_step_cls(num_selected)}">2 Count</span>
+            <span class="step-arrow">&rarr;</span>
+            <span class="step-badge {_step_cls(objectives_set)}">3 Objectives</span>
+            <span class="step-arrow">&rarr;</span>
+            <span class="step-badge {_step_cls(generated)}">4 Generate</span>
+        </div>""",
+        unsafe_allow_html=True,
+    )
 
     # ── Parent selector ──
     parent_names = [p.get("name", f"Parent {i+1}") for i, p in enumerate(parents)]
@@ -508,6 +532,37 @@ def render_control_panel():
         st.session_state.num_to_generate = new_num
         st.session_state.selected_molecule_id = None
 
+    # ── Optimization Objectives ──
+    property_labels_list = [_label(p) for p in ALL_PROPERTIES]
+    label_to_key = {_label(p): p for p in ALL_PROPERTIES}
+
+    default_obj = st.session_state.get("obj_props", [])
+    default_labels = [_label(p) for p in default_obj if p in ALL_PROPERTIES]
+
+    selected_labels = st.multiselect(
+        "Optimization Objectives",
+        options=property_labels_list,
+        default=default_labels,
+        key="obj_props_selector",
+    )
+
+    # Convert selected labels back to property keys
+    obj_props = [label_to_key[lbl] for lbl in selected_labels]
+    new_dirs = {prop: _best_direction_default(prop) for prop in obj_props}
+
+    # Detect changes
+    changed = set(obj_props) != set(st.session_state.get("obj_props", []))
+
+    st.session_state.obj_props = obj_props
+    st.session_state.obj_dirs = new_dirs
+    st.session_state.top_k = 1
+
+    if changed:
+        st.session_state.pareto_ids = []
+        st.session_state.topk_ids = []
+        st.session_state.selected_molecule_id = None
+        st.rerun()
+
     # ── Generate button ──
     st.markdown("")
     st.markdown('<div class="generate-btn">', unsafe_allow_html=True)
@@ -522,76 +577,6 @@ def render_control_panel():
         st.session_state.children_data = all_children[:st.session_state.num_to_generate]
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Advanced Optimization (collapsible) ──
-    st.markdown("---")
-    with st.expander("Select Optimization Objectives", expanded=False):
-        st.caption("Select properties to optimize.")
-
-        # Map property keys to human-readable labels
-        property_labels_list = [_label(p) for p in ALL_PROPERTIES]
-        label_to_key = {_label(p): p for p in ALL_PROPERTIES}
-
-        default_obj = st.session_state.get("obj_props", [])
-        default_labels = [_label(p) for p in default_obj if p in ALL_PROPERTIES]
-
-        selected_labels = st.multiselect(
-            "Objectives",
-            options=property_labels_list,
-            default=default_labels,
-            key="obj_props_selector",
-        )
-
-        # Convert selected labels back to property keys
-        obj_props = [label_to_key[lbl] for lbl in selected_labels]
-
-        new_dirs = {prop: _best_direction_default(prop) for prop in obj_props}
-
-        # Binding guardrail
-        st.markdown("")
-        st.caption("Only keep molecules above the binding probability threshold")
-        prev_enabled = bool(st.session_state.get("bp_guard_enabled", False))
-        prev_value = float(st.session_state.get("bp_guard_value", 0.50))
-
-        cols_bp = st.columns([2, 2])
-        with cols_bp[0]:
-            enabled_widget = st.checkbox(
-                "Enable guardrail",
-                value=prev_enabled,
-                key="bp_guard_enabled_widget"
-            )
-        with cols_bp[1]:
-            txt_val = st.text_input(
-                "Threshold (0.00–1.00)",
-                value=f"{prev_value:.2f}",
-                key="bp_guard_text"
-            )
-            try:
-                txt_float = float(txt_val)
-            except Exception:
-                txt_float = prev_value
-            txt_float = max(0.0, min(1.0, txt_float))
-
-        # Update state keys AFTER widgets exist
-        st.session_state["bp_guard_enabled"] = bool(enabled_widget)
-        st.session_state["bp_guard_value"] = float(txt_float)
-
-        # Detect changes
-        changed = (
-            set(obj_props) != set(st.session_state.get("obj_props", []))
-            or bool(enabled_widget) != prev_enabled
-            or abs(float(txt_float) - float(prev_value)) > 1e-12
-        )
-
-        st.session_state.obj_props = obj_props
-        st.session_state.obj_dirs = new_dirs
-        st.session_state.top_k = 1
-
-        if changed:
-            st.session_state.pareto_ids = []
-            st.session_state.topk_ids = []
-            st.session_state.selected_molecule_id = None
-            st.rerun()
 
     # ── Export ──
     if st.session_state.enumeration_completed:
@@ -834,15 +819,19 @@ def _resolve_clicked_id(event, df_scored: pd.DataFrame):
     points = event.selection.get("points", [])
     point_indices = event.selection.get("point_indices", [])
 
-    if points:
-        point = points[0]
+    for point in points:
+        # Try customdata first (present on the base trace)
         if "customdata" in point:
             data = point["customdata"]
-            return data[0] if isinstance(data, (list, tuple)) else data
+            mol_id = data[0] if isinstance(data, (list, tuple)) else data
+            if mol_id in df_scored["id"].values:
+                return mol_id
+        # Fall back to point_index on the base trace (curve_number 0)
         idx = point.get("point_index", point.get("pointIndex"))
         if idx is not None and idx < len(df_scored):
             return df_scored.iloc[idx]["id"]
-    elif point_indices:
+
+    if point_indices:
         idx = point_indices[0]
         if idx < len(df_scored):
             return df_scored.iloc[idx]["id"]
@@ -896,7 +885,10 @@ def _render_hero_card(df_scored, topk_ids, parent):
 
     stat_parts = []
     for label, child_val, parent_val, higher_better in comparisons:
+        if abs(parent_val) < 1e-9:
+            continue  # skip if parent value is essentially zero
         pct = ((child_val - parent_val) / abs(parent_val)) * 100
+        pct = max(-999.9, min(999.9, pct))  # cap to avoid absurd numbers
         is_good = (pct > 0 and higher_better) or (pct < 0 and not higher_better)
         color = NORD["aurora_green"] if is_good else NORD["aurora_red"]
         sign = "+" if pct > 0 else ""
@@ -981,11 +973,18 @@ def _render_results_viz():
             name=""
         ))
 
+    # Prevent Plotly from dimming any trace on point selection
+    fig.update_traces(
+        selected=dict(marker=dict(opacity=1)),
+        unselected=dict(marker=dict(opacity=1)),
+    )
+
     event = st.plotly_chart(
         fig, key="main_scatter", on_select="rerun",
         selection_mode=["points"],
         use_container_width=True, config={'displayModeBar': False}
     )
+    st.markdown('<div class="hint-text">Click any point to view molecule details</div>', unsafe_allow_html=True)
 
     # ── Axis selectors (side-by-side below graph) ──
     axis_options = SCATTER_COLUMNS

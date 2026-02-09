@@ -7,15 +7,15 @@ from utils.theme import NORD, plotly_layout_defaults
 
 # Human-readable labels for property columns
 PROPERTY_LABELS = {
-    "binding_probability": "Binding Strength",
-    "Hepatotoxicity probability": "Hepatotoxicity Risk Score",
-    "Caco2": "Gut Absorption",
-    "Half_Life (h)": "Half-Life",
-    "LD50 (nM)": "Safety Margin (LD50)",
-    "hERG (nM)": "Heart Safety (hERG)",
-    "MolLogP_unitless": "Drug-likeness (LogP)",
-    "MolWt (g/mol)": "Molecular Weight",
-    "TPSA (Ang^2)": "Cell Permeability (TPSA)",
+    "binding_probability": "Binding Probability (higher=better)",
+    "Hepatotoxicity probability": "Hepatotoxicity Risk (lower=safer)",
+    "Caco2": "Gut Absorption (higher=better)",
+    "Half_Life (h)": "Half-Life (h) (higher=longer)",
+    "LD50 (nM)": "Lethal Dose LD50 in nM (higher=safer)",
+    "hERG (nM)": "hERG IC50 in nM (higher=safer)",
+    "MolLogP_unitless": "Lipophilicity LogP (lower=better)",
+    "MolWt (g/mol)": "Mol. Weight in g/mol (lower=better)",
+    "TPSA (Ang^2)": "Overall Polarity TPSA \u00c5\u00b2 (lower=better)",
     "opt_score": "Optimization Score",
 }
 
@@ -95,6 +95,8 @@ def build_scatter(df, x_col="Half_Life (h)", y_col="hERG (nM)",
                 cmin=0 if color_col == "opt_score" else None,
                 cmax=10 if color_col == "opt_score" else None,
             ),
+            selected=dict(marker=dict(opacity=1)),
+            unselected=dict(marker=dict(opacity=1)),
             text=df.get("name"),
             customdata=df["id"].values,
             hovertemplate=(f"<b>%{{text}}</b><br>"
