@@ -904,7 +904,7 @@ def _resolve_clicked_id(event, df_scored: pd.DataFrame):
 
 
 def _render_hero_card(df_scored, topk_ids, parent):
-    """Render a prominent 'Best Discovery' card above the scatter plot."""
+    """Render a 'Best Discovery' card showing improvements for selected objectives + binding."""
     if not topk_ids:
         return
 
@@ -917,21 +917,34 @@ def _render_hero_card(df_scored, topk_ids, parent):
     parent_props = parent.get("properties", {})
     parent_binding = parent.get("binding_probability", 0)
 
-    # (label, child_value, parent_value, higher_is_better)
-    comparisons = [
-        ("Binding Strength", best.get("binding_probability", 0), parent_binding, True),
-        ("Liver Safety", best.get("Hepatotoxicity probability", 0),
-         parent_props.get("Hepatotoxicity probability", 0), False),
-        ("Half-Life", best.get("Half_Life (h)", 0),
-         parent_props.get("Half_Life (h)", 0), True),
-        ("Heart Safety", best.get("hERG (nM)", 0),
-         parent_props.get("hERG (nM)", 0), True),
-    ]
+    # Build comparisons from selected objectives, always include binding
+    obj_props = st.session_state.get("obj_props", [])
+    obj_dirs = st.session_state.get("obj_dirs", {})
+
+    # Always show binding first
+    shown_props = ["binding_probability"]
+    for p in obj_props:
+        if p not in shown_props:
+            shown_props.append(p)
+
+    comparisons = []
+    for prop in shown_props:
+        label = _label(prop)
+        direction = obj_dirs.get(prop, _best_direction_default(prop))
+        higher_better = (direction == "Higher is better")
+
+        child_val = best.get(prop, 0)
+        if prop == "binding_probability":
+            parent_val = parent_binding
+        else:
+            parent_val = parent_props.get(prop, 0)
+
+        if not parent_val:
+            continue
+        comparisons.append((label, child_val, parent_val, higher_better))
 
     stat_parts = []
     for label, child_val, parent_val, higher_better in comparisons:
-        if not parent_val:
-            continue
         pct = ((child_val - parent_val) / abs(parent_val)) * 100
         is_good = (pct > 0 and higher_better) or (pct < 0 and not higher_better)
         color = NORD["aurora_green"] if is_good else NORD["aurora_red"]
