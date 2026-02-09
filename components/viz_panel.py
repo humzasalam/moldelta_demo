@@ -622,6 +622,7 @@ def render_control_panel():
             st.session_state.pareto_ids = []
             st.session_state.topk_ids = []
             st.session_state.selected_molecule_id = None
+            st.session_state.tracked_ids = set()  # Clear tracked molecules when guardrail changes
             st.rerun()
 
     # ── Tracked controls ──
