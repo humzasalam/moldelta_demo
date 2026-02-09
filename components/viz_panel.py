@@ -920,6 +920,7 @@ def _render_hero_card(df_scored, topk_ids, parent):
     stats_html = " ".join(stat_parts)
     mol_name = best.get("name", best_id)
     edit_type = best.get("modification") or best.get("reaction_type") or ""
+    edit_suffix = f' <span style="text-transform:none; color:{NORD["snow_1"]};">{edit_type}</span>' if edit_type else ""
 
     st.markdown(
         f"""
@@ -930,7 +931,7 @@ def _render_hero_card(df_scored, topk_ids, parent):
             box-shadow: 0 4px 16px rgba(235, 203, 139, 0.15);">
             <div style="font-size:0.75rem; color:{NORD["aurora_yellow"]}; font-weight:600;
                         text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.2rem;">
-                Best Edit: <span style="text-transform:none;">{edit_type}</span>
+                Best Edit{edit_suffix}
             </div>
             <div style="font-size:1.2rem; font-weight:700; color:{NORD["snow_2"]}; margin-bottom:0.4rem;">
                 {mol_name}
