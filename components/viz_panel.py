@@ -534,7 +534,11 @@ def render_control_panel():
         unsafe_allow_html=True,
     )
 
-    # ── Parent selector ──
+    # ── Stage-gate flags ──
+    parent_touched = st.session_state.get("parent_touched", False)
+    count_touched = st.session_state.get("count_touched", False)
+
+    # ── Parent selector (always enabled) ──
     parent_names = [p.get("name", f"Parent {i+1}") for i, p in enumerate(parents)]
     selected_parent = st.selectbox(
         "Parent Molecule",
@@ -547,6 +551,8 @@ def render_control_panel():
         st.session_state.selected_parent_index = new_idx
         st.session_state.parent_data = parents[new_idx]
         st.session_state.children_data = st.session_state.children_sets[new_idx]
+        st.session_state.parent_touched = True
+        st.session_state.count_touched = False
         # Reset highlights/state to avoid bleed-through
         st.session_state.tracked_ids = set()
         st.session_state.pareto_ids = []
@@ -556,7 +562,7 @@ def render_control_panel():
         st.session_state.enumeration_completed = False
         st.rerun()
 
-    # ── Number of molecules ──
+    # ── Number of molecules (gated on parent) ──
     max_children = len(st.session_state.children_sets[st.session_state.selected_parent_index])
     num_options = [n for n in [10, 20, 30, 40, 50] if n <= max_children]
     num_options.append(max_children)
@@ -566,14 +572,16 @@ def render_control_panel():
         "# Molecules",
         display_options,
         index=min(1, len(display_options) - 1),
-        key="num_selector"
+        key="num_selector",
+        disabled=not parent_touched,
     )
     new_num = max_children if selected_num.startswith("All") else int(selected_num)
     if new_num != st.session_state.get("num_to_generate", 20):
         st.session_state.num_to_generate = new_num
+        st.session_state.count_touched = True
         st.session_state.selected_molecule_id = None
 
-    # ── Optimization Objectives ──
+    # ── Optimization Objectives (gated on count) ──
     property_labels_list = [_label(p) for p in ALL_PROPERTIES]
     label_to_key = {_label(p): p for p in ALL_PROPERTIES}
 
@@ -585,6 +593,7 @@ def render_control_panel():
         options=property_labels_list,
         default=default_labels,
         key="obj_props_selector",
+        disabled=not count_touched,
     )
 
     # Convert selected labels back to property keys
@@ -604,10 +613,29 @@ def render_control_panel():
         st.session_state.selected_molecule_id = None
         st.rerun()
 
-    # ── Generate button ──
+    # ── Binding guardrail (gated on objectives) ──
+    has_objectives = len(obj_props) > 0
+    bp_guard = st.checkbox(
+        "Min. Binding Probability",
+        value=st.session_state.get("bp_guard_enabled", False),
+        disabled=not has_objectives,
+        key="bp_guard_checkbox",
+    )
+    st.session_state.bp_guard_enabled = bp_guard
+    if bp_guard:
+        bp_val = st.number_input(
+            "Threshold",
+            min_value=0.0, max_value=1.0,
+            value=st.session_state.get("bp_guard_value", 0.50),
+            step=0.05,
+            key="bp_guard_input",
+        )
+        st.session_state.bp_guard_value = bp_val
+
+    # ── Generate button (gated on objectives) ──
     st.markdown("")
     st.markdown('<div class="generate-btn">', unsafe_allow_html=True)
-    if st.button("Generate Children", use_container_width=True):
+    if st.button("Generate Children", use_container_width=True, disabled=not has_objectives):
         st.session_state.flow_step = "ENUMERATING"
         st.session_state.enumeration_completed = False
         st.session_state.selected_molecule_id = None
@@ -798,35 +826,7 @@ def _render_animated_enumeration():
     overlay_placeholder.empty()
 
     # ── Post-animation summary flash ──
-    parent = st.session_state.parent_data
-    parent_props = parent.get("properties", {})
     total_candidates = len(df)
-
-    # Count candidates that improve on selected objectives
-    obj_props = st.session_state.get("obj_props", [])
-    obj_dirs = st.session_state.get("obj_dirs", {})
-    improved_count = 0
-    if obj_props:
-        improve_mask = pd.Series(True, index=df.index)
-        for prop in obj_props:
-            direction = obj_dirs.get(prop, _best_direction_default(prop))
-            if prop == "binding_probability":
-                parent_val = parent.get("binding_probability", 0)
-            else:
-                parent_val = parent_props.get(prop, 0)
-            if prop in df.columns:
-                if direction == "Higher is better":
-                    improve_mask &= df[prop] > parent_val
-                else:
-                    improve_mask &= df[prop] < parent_val
-        improved_count = int(improve_mask.sum())
-
-    improved_line = ""
-    if obj_props:
-        improved_line = f"""
-            <div style="font-size: 1.1rem; color: #EBCB8B; margin-top: 0.6rem; font-weight: 600;">
-                <b>{improved_count}</b> candidates improve on selected objectives
-            </div>"""
 
     overlay_placeholder.markdown(
         f"""
@@ -841,7 +841,7 @@ def _render_animated_enumeration():
             </div>
             <div style="font-size: 1.1rem; color: #ECEFF4; margin-bottom: 0.6rem;">
                 <b>{total_candidates}</b> candidates generated
-            </div>{improved_line}
+            </div>
         </div>
         """,
         unsafe_allow_html=True
@@ -929,13 +929,13 @@ def _render_hero_card(df_scored, topk_ids, parent):
         if abs(parent_val) < 1e-9:
             continue  # skip if parent value is essentially zero
         pct = ((child_val - parent_val) / abs(parent_val)) * 100
-        pct = max(-999.9, min(999.9, pct))  # cap to avoid absurd numbers
+        pct = max(-999, min(999, pct))  # cap to avoid absurd numbers
         is_good = (pct > 0 and higher_better) or (pct < 0 and not higher_better)
         color = NORD["aurora_green"] if is_good else NORD["aurora_red"]
         sign = "+" if pct > 0 else ""
         stat_parts.append(
             f'<span style="color:{color}; font-size:1.05rem; font-weight:700; '
-            f'margin-right:1.2rem;">{sign}{pct:.1f}% {label}</span>'
+            f'margin-right:1.2rem;">{sign}{pct:.0f}% {label}</span>'
         )
 
     stats_html = " ".join(stat_parts)

@@ -345,6 +345,19 @@ def inject_custom_css():
             text-align: center;
             margin-top: 0.4rem;
         }}
+
+        /* ── Smaller tags in multiselect ── */
+        div[data-testid="stMultiSelect"] span[data-baseweb="tag"] {{
+            font-size: 0.68rem;
+            max-width: none;
+            padding: 0.15rem 0.4rem;
+        }}
+        div[data-testid="stMultiSelect"] span[data-baseweb="tag"] span {{
+            font-size: 0.68rem;
+            overflow: visible;
+            text-overflow: unset;
+            white-space: normal;
+        }}
         </style>
         """,
         unsafe_allow_html=True,

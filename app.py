@@ -35,10 +35,10 @@ def load_data():
             parents.append(json.load(f))
         with open(os.path.join(base, "data", f"children_{i}.json")) as f:
             children = json.load(f)
-            # Filter out molecules with null binding_probability
+            # Filter out molecules with null or zero binding_probability
             children = [
                 child for child in children
-                if child.get("binding_probability") is not None
+                if child.get("binding_probability")
             ]
             children_sets.append(children)
     return parents, children_sets
@@ -67,6 +67,8 @@ def init_session_state():
         "obj_dirs": {},
         "bp_guard_enabled": False,
         "bp_guard_value": 0.50,
+        "parent_touched": False,
+        "count_touched": False,
         "tracked_ids": set(),
         "pareto_ids": [],
         "topk_ids": [],
