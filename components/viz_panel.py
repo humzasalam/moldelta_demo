@@ -313,8 +313,13 @@ def _compute_and_cache_highlights(df: pd.DataFrame):
     df2 = df.copy()
     df2 = _compute_scores_and_pareto(df2, obj_props, directions)
 
-    # Case A: No objectives selected
+    # Case A: No objectives selected — highlight best binder
     if not obj_props:
+        if "binding_probability" in df2.columns and not df2.empty:
+            best_binder_id = df2.nlargest(1, "binding_probability")["id"].iloc[0]
+            st.session_state.pareto_ids = [best_binder_id]
+            st.session_state.topk_ids = [best_binder_id]
+            return [best_binder_id], [best_binder_id], df2
         st.session_state.pareto_ids = []
         st.session_state.topk_ids = []
         return [], [], df2
