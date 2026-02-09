@@ -34,7 +34,13 @@ def load_data():
         with open(os.path.join(base, "data", f"parent_{i}.json")) as f:
             parents.append(json.load(f))
         with open(os.path.join(base, "data", f"children_{i}.json")) as f:
-            children_sets.append(json.load(f))
+            children = json.load(f)
+            # Filter out molecules with null binding_probability
+            children = [
+                child for child in children
+                if child.get("binding_probability") is not None
+            ]
+            children_sets.append(children)
     return parents, children_sets
 
 
