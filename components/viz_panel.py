@@ -543,30 +543,15 @@ def render_control_panel():
         property_labels_list = [_label(p) for p in ALL_PROPERTIES]
         label_to_key = {_label(p): p for p in ALL_PROPERTIES}
 
-        # Objectives selector with "Select All" button in same row
-        obj_cols = st.columns([3, 1])
+        default_obj = st.session_state.get("obj_props", [])
+        default_labels = [_label(p) for p in default_obj if p in ALL_PROPERTIES]
 
-        with obj_cols[0]:
-            default_obj = st.session_state.get("obj_props", [])
-            default_labels = [_label(p) for p in default_obj if p in ALL_PROPERTIES]
-
-            selected_labels = st.multiselect(
-                "Objectives",
-                options=property_labels_list,
-                default=default_labels,
-                key="obj_props_selector",
-            )
-
-        with obj_cols[1]:
-            st.markdown("")  # Spacing to align with multiselect
-            if st.button("Select All", use_container_width=True, key="select_all_objectives"):
-                # Set all properties as selected
-                st.session_state.obj_props = ALL_PROPERTIES.copy()
-                st.session_state.obj_props_selector = property_labels_list.copy()  # Update widget state
-                st.session_state.pareto_ids = []
-                st.session_state.topk_ids = []
-                st.session_state.selected_molecule_id = None
-                st.rerun()
+        selected_labels = st.multiselect(
+            "Objectives",
+            options=property_labels_list,
+            default=default_labels,
+            key="obj_props_selector",
+        )
 
         # Convert selected labels back to property keys
         obj_props = [label_to_key[lbl] for lbl in selected_labels]
