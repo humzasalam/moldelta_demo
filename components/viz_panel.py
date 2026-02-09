@@ -518,6 +518,18 @@ def render_control_panel():
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
+    # ── Parent Baseline ──
+    st.markdown("---")
+    st.markdown("**Parent Baseline**")
+    parent_props = parent.get("properties", {})
+    baseline_cols = st.columns(2)
+    with baseline_cols[0]:
+        st.metric("Binding Strength", f"{parent.get('binding_probability', 0):.2f}")
+        st.metric("Liver Safety", f"{parent_props.get('Hepatotoxicity probability', 0):.4f}")
+    with baseline_cols[1]:
+        st.metric("Half-Life", f"{parent_props.get('Half_Life (h)', 0):.1f} h")
+        st.metric("Heart Safety", f"{parent_props.get('hERG (nM)', 0):.2f} nM")
+
     # ── Advanced Optimization (collapsible) ──
     st.markdown("---")
     with st.expander("⚙️ Advanced Optimization", expanded=False):
@@ -763,9 +775,23 @@ def _render_animated_enumeration():
 
         chart_placeholder.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-        # UI overlay
+        # UI overlay with dynamic phase text
         current_best = subset_scored["opt_score"].max() if "opt_score" in subset_scored.columns else 0
         progress_percent = (end_idx / total) * 100
+
+        if progress_percent < 30:
+            phase_text = "AI exploring molecular space..."
+            phase_color = "#5E81AC"
+        elif progress_percent < 65:
+            phase_text = "Evaluating ADME properties..."
+            phase_color = "#88C0D0"
+        elif progress_percent < 90:
+            phase_text = "Scoring candidates..."
+            phase_color = "#EBCB8B"
+        else:
+            phase_text = "Finalizing optimization..."
+            phase_color = "#A3BE8C"
+
         overlay_placeholder.markdown(
             f"""
             <div class="enum-overlay" style="
@@ -774,8 +800,8 @@ def _render_animated_enumeration():
                 border: 2px solid #4C566A; border-radius: 16px; padding: 2rem 3rem;
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6); z-index: 9999;
                 min-width: 400px; max-width: 480px; text-align: center;">
-                <div style="font-size: 1.4rem; font-weight: 600; color: #ECEFF4; margin-bottom: 0.8rem;">
-                    Optimizing candidates...
+                <div style="font-size: 1.4rem; font-weight: 600; color: {phase_color}; margin-bottom: 0.8rem;">
+                    {phase_text}
                 </div>
                 <div style="font-size: 0.95rem; color: #D8DEE9; margin-bottom: 1.2rem;">
                     Molecules processed: {end_idx} / {total}
@@ -793,6 +819,63 @@ def _render_animated_enumeration():
         time.sleep(0.08)
 
     overlay_placeholder.empty()
+
+    # ── Post-animation summary flash ──
+    parent = st.session_state.parent_data
+    parent_props = parent.get("properties", {})
+    parent_binding = parent.get("binding_probability", 0)
+    parent_hepato = parent_props.get("Hepatotoxicity probability", 0)
+    total_candidates = len(df)
+
+    binding_improved = int((df["binding_probability"] > parent_binding).sum()) if "binding_probability" in df.columns else 0
+    hepato_improved = int((df["Hepatotoxicity probability"] < parent_hepato).sum()) if "Hepatotoxicity probability" in df.columns else 0
+    both_improved = 0
+    if "binding_probability" in df.columns and "Hepatotoxicity probability" in df.columns:
+        both_improved = int(((df["binding_probability"] > parent_binding) & (df["Hepatotoxicity probability"] < parent_hepato)).sum())
+
+    overlay_placeholder.markdown(
+        f"""
+        <div style="
+            position: fixed; top: 50%; left: 60%; transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(46, 52, 64, 0.98), rgba(59, 66, 82, 0.98));
+            border: 2px solid #A3BE8C; border-radius: 16px; padding: 2rem 3rem;
+            box-shadow: 0 8px 32px rgba(163, 190, 140, 0.3); z-index: 9999;
+            min-width: 420px; max-width: 500px; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: #A3BE8C; margin-bottom: 1.2rem;">
+                Optimization Complete
+            </div>
+            <div style="font-size: 1.1rem; color: #ECEFF4; margin-bottom: 0.6rem;">
+                <b>{total_candidates}</b> candidates generated
+            </div>
+            <div style="font-size: 1rem; color: #88C0D0; margin-bottom: 0.3rem;">
+                <b>{binding_improved}</b> improve binding strength
+            </div>
+            <div style="font-size: 1rem; color: #8FBCBB; margin-bottom: 0.3rem;">
+                <b>{hepato_improved}</b> reduce liver toxicity
+            </div>
+            <div style="font-size: 1.1rem; color: #EBCB8B; margin-top: 0.6rem; font-weight: 600;">
+                <b>{both_improved}</b> improve BOTH
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    time.sleep(2.5)
+    overlay_placeholder.empty()
+
+    # ── Auto-select default objectives ──
+    if not st.session_state.get("obj_props"):
+        default_props = ["binding_probability", "Hepatotoxicity probability", "Half_Life (h)"]
+        st.session_state.obj_props = default_props
+        st.session_state.obj_dirs = {
+            "binding_probability": "Higher is better",
+            "Hepatotoxicity probability": "Lower is better",
+            "Half_Life (h)": "Higher is better",
+        }
+        st.session_state.top_k = 1
+        # Sync the multiselect widget key so it picks up defaults
+        st.session_state["obj_props_selector"] = [_label(p) for p in default_props]
+
     st.session_state.enumeration_completed = True
     st.session_state.flow_step = "RESULTS"
     st.rerun()
@@ -819,6 +902,68 @@ def _resolve_clicked_id(event, df_scored: pd.DataFrame):
     return None
 
 
+def _render_hero_card(df_scored, topk_ids, parent):
+    """Render a prominent 'Best Discovery' card above the scatter plot."""
+    if not topk_ids:
+        return
+
+    best_id = topk_ids[0]
+    best_row = df_scored[df_scored["id"] == best_id]
+    if best_row.empty:
+        return
+    best = best_row.iloc[0]
+
+    parent_props = parent.get("properties", {})
+    parent_binding = parent.get("binding_probability", 0)
+
+    # (label, child_value, parent_value, higher_is_better)
+    comparisons = [
+        ("Binding Strength", best.get("binding_probability", 0), parent_binding, True),
+        ("Liver Safety", best.get("Hepatotoxicity probability", 0),
+         parent_props.get("Hepatotoxicity probability", 0), False),
+        ("Half-Life", best.get("Half_Life (h)", 0),
+         parent_props.get("Half_Life (h)", 0), True),
+        ("Heart Safety", best.get("hERG (nM)", 0),
+         parent_props.get("hERG (nM)", 0), True),
+    ]
+
+    stat_parts = []
+    for label, child_val, parent_val, higher_better in comparisons:
+        if not parent_val:
+            continue
+        pct = ((child_val - parent_val) / abs(parent_val)) * 100
+        is_good = (pct > 0 and higher_better) or (pct < 0 and not higher_better)
+        color = NORD["aurora_green"] if is_good else NORD["aurora_red"]
+        sign = "+" if pct > 0 else ""
+        stat_parts.append(
+            f'<span style="color:{color}; font-size:1.05rem; font-weight:700; '
+            f'margin-right:1.2rem;">{sign}{pct:.0f}% {label}</span>'
+        )
+
+    stats_html = " ".join(stat_parts)
+    mol_name = best.get("name", best_id)
+
+    st.markdown(
+        f"""
+        <div style="
+            background: linear-gradient(135deg, rgba(46, 52, 64, 0.95), rgba(59, 66, 82, 0.95));
+            border: 2px solid {NORD["aurora_yellow"]};
+            border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1rem;
+            box-shadow: 0 4px 16px rgba(235, 203, 139, 0.15);">
+            <div style="font-size:0.75rem; color:{NORD["aurora_yellow"]}; font-weight:600;
+                        text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.2rem;">
+                Best Discovery
+            </div>
+            <div style="font-size:1.2rem; font-weight:700; color:{NORD["snow_2"]}; margin-bottom:0.4rem;">
+                {mol_name}
+            </div>
+            <div>{stats_html}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
 def _render_results_viz():
     from plotly import graph_objects as go
 
@@ -832,6 +977,9 @@ def _render_results_viz():
         return
 
     pareto_ids, topk_ids, df_scored = _compute_and_cache_highlights(df)
+
+    # Hero card — best discovery summary
+    _render_hero_card(df_scored, topk_ids, st.session_state.parent_data)
 
     x_axis = st.session_state.get("x_axis", "Half_Life (h)")
     y_axis = st.session_state.get("y_axis", "hERG (nM)")

@@ -4,6 +4,7 @@ import streamlit as st
 
 from utils.theme import NORD
 from utils.mol_render import highlight_diff_image, smiles_to_image, smiles_to_png, highlight_diff_png
+from utils.plotting import PROPERTY_LABELS
 
 
 def render_molecule_card(molecule, parent):
@@ -53,15 +54,12 @@ def render_molecule_card(molecule, parent):
         }
 
         property_list = [
-            ("binding_probability", "Binding Probability"),
-            ("Hepatotoxicity probability", "Hepatotoxicity"),
-            ("Caco2", "Caco-2 Permeability"),
-            ("Half_Life (h)", "Half-Life (h)"),
-            ("LD50 (nM)", "LD50 (nM)"),
-            ("hERG (nM)", "hERG (nM)"),
-            ("MolLogP_unitless", "LogP"),
-            ("MolWt (g/mol)", "Mol. Weight"),
-            ("TPSA (Ang^2)", "TPSA (A\u00b2)"),
+            (k, PROPERTY_LABELS.get(k, k))
+            for k in [
+                "binding_probability", "Hepatotoxicity probability", "Caco2",
+                "Half_Life (h)", "LD50 (nM)", "hERG (nM)",
+                "MolLogP_unitless", "MolWt (g/mol)", "TPSA (Ang^2)",
+            ]
         ]
 
         # Create grid of property delta cards (4 rows x 2 cols)
