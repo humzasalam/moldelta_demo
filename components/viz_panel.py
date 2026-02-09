@@ -655,6 +655,11 @@ def render_control_panel():
                          "is_known_binder", "literature_source"]
             export_df = df.drop(columns=[c for c in drop_cols if c in df.columns])
             export_df["pareto"] = df["pareto"]
+
+            # Add column to mark molecules highlighted by Top-K selector
+            topk_ids = set(st.session_state.get("topk_ids", []))
+            export_df["top_k_highlighted"] = export_df["id"].isin(topk_ids)
+
             csv_data = export_df.to_csv(index=False).encode("utf-8")
             st.download_button("Export CSV", data=csv_data,
                                file_name="moldelta_results.csv", mime="text/csv",
