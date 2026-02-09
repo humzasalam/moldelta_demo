@@ -425,110 +425,96 @@ def render_control_panel():
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── Axes ──
+    # ── Advanced Optimization (collapsible) ──
     st.markdown("---")
-    axis_options = SCATTER_COLUMNS
-    axis_labels = [_label(c) for c in axis_options]
+    with st.expander("⚙️ Advanced Optimization", expanded=False):
+        st.caption("Optimization objectives. Choose up to 4; each can be Higher/Lower.")
 
-    current_x = st.session_state.get("x_axis", "Half_Life (h)")
-    x_idx = axis_options.index(current_x) if current_x in axis_options else 0
-    x_label = st.selectbox("X-Axis", axis_labels, index=x_idx, key="x_axis_selector")
-    new_x = axis_options[axis_labels.index(x_label)]
-    if new_x != st.session_state.get("x_axis"):
-        st.session_state.x_axis = new_x
-        st.session_state.selected_molecule_id = None
-        st.rerun()
+        # Map property keys to human-readable labels
+        property_labels_list = [_label(p) for p in ALL_PROPERTIES]
+        label_to_key = {_label(p): p for p in ALL_PROPERTIES}
 
-    current_y = st.session_state.get("y_axis", "hERG (nM)")
-    y_idx = axis_options.index(current_y) if current_y in axis_options else 0
-    y_label = st.selectbox("Y-Axis", axis_labels, index=y_idx, key="y_axis_selector")
-    new_y = axis_options[axis_labels.index(y_label)]
-    if new_y != st.session_state.get("y_axis"):
-        st.session_state.y_axis = new_y
-        st.session_state.selected_molecule_id = None
-        st.rerun()
+        default_obj = st.session_state.get("obj_props", [])
+        default_labels = [_label(p) for p in default_obj if p in ALL_PROPERTIES]
 
-    # ── Binding guardrail (checkbox + TEXT ONLY) ──
-    st.markdown("---")
-    st.caption("Binding probability guardrail (absolute). Keep only molecules with binding_probability ≥ threshold.")
-
-    prev_enabled = bool(st.session_state.get("bp_guard_enabled", False))
-    prev_value = float(st.session_state.get("bp_guard_value", 0.50))
-
-    cols_bp = st.columns([2, 2])
-    with cols_bp[0]:
-        enabled_widget = st.checkbox(
-            "Enable guardrail",
-            value=prev_enabled,
-            key="bp_guard_enabled_widget"
-        )
-    with cols_bp[1]:
-        txt_val = st.text_input(
-            "Threshold (0.00–1.00)",
-            value=f"{prev_value:.2f}",
-            key="bp_guard_text"
-        )
-        try:
-            txt_float = float(txt_val)
-        except Exception:
-            txt_float = prev_value
-        txt_float = max(0.0, min(1.0, txt_float))
-
-    # Update our own state keys AFTER widgets exist
-    st.session_state["bp_guard_enabled"] = bool(enabled_widget)
-    st.session_state["bp_guard_value"] = float(txt_float)
-
-    # ── Objectives (max 4) ──
-    st.markdown("---")
-    st.caption("Optimization objectives. Choose up to 4; each can be Higher/Lower.")
-
-    default_obj = st.session_state.get("obj_props", [])
-    obj_props = st.multiselect(
-        "Objectives",
-        options=ALL_PROPERTIES,
-        default=[p for p in default_obj if p in ALL_PROPERTIES],
-        max_selections=4,
-        key="obj_props_selector",
-    )
-
-    obj_dirs_state = st.session_state.get("obj_dirs", {})
-    new_dirs = {}
-    for prop in obj_props:
-        current = obj_dirs_state.get(prop, _best_direction_default(prop))
-        new_dirs[prop] = st.radio(
-            f"{_label(prop)}",
-            ["Higher is better", "Lower is better"],
-            horizontal=True,
-            index=0 if current == "Higher is better" else 1,
-            key=f"obj_dir_{prop}",
+        selected_labels = st.multiselect(
+            "Objectives",
+            options=property_labels_list,
+            default=default_labels,
+            max_selections=4,
+            key="obj_props_selector",
         )
 
-    # ── Top-K slider ──
-    top_k_widget_val = st.slider(
-        "Highlight top-K within Pareto (rank-sum tiebreaker)",
-        min_value=1, max_value=10,
-        value=int(st.session_state.get("top_k", 1)),
-        key="top_k_slider"
-    )
+        # Convert selected labels back to property keys
+        obj_props = [label_to_key[lbl] for lbl in selected_labels]
 
-    # Detect changes that must recompute highlights and overwrite IDs
-    changed = (
-        set(obj_props) != set(st.session_state.get("obj_props", []))
-        or any(st.session_state.get("obj_dirs", {}).get(k) != v for k, v in new_dirs.items())
-        or int(top_k_widget_val) != int(st.session_state.get("top_k", 1))
-        or bool(enabled_widget) != prev_enabled
-        or abs(float(txt_float) - float(prev_value)) > 1e-12
-    )
+        obj_dirs_state = st.session_state.get("obj_dirs", {})
+        new_dirs = {}
+        for prop in obj_props:
+            current = obj_dirs_state.get(prop, _best_direction_default(prop))
+            new_dirs[prop] = st.radio(
+                f"{_label(prop)}",
+                ["Higher is better", "Lower is better"],
+                horizontal=True,
+                index=0 if current == "Higher is better" else 1,
+                key=f"obj_dir_{prop}",
+            )
 
-    st.session_state.obj_props = obj_props
-    st.session_state.obj_dirs = new_dirs
-    st.session_state.top_k = int(top_k_widget_val)
+        # Top-K slider
+        top_k_widget_val = st.slider(
+            "Highlight top-K within Pareto",
+            min_value=1, max_value=10,
+            value=int(st.session_state.get("top_k", 1)),
+            key="top_k_slider"
+        )
 
-    if changed:
-        st.session_state.pareto_ids = []
-        st.session_state.topk_ids = []
-        st.session_state.selected_molecule_id = None
-        st.rerun()
+        # Binding guardrail
+        st.markdown("")
+        st.caption("Binding probability guardrail: Keep only molecules with binding_probability ≥ threshold")
+        prev_enabled = bool(st.session_state.get("bp_guard_enabled", False))
+        prev_value = float(st.session_state.get("bp_guard_value", 0.50))
+
+        cols_bp = st.columns([2, 2])
+        with cols_bp[0]:
+            enabled_widget = st.checkbox(
+                "Enable guardrail",
+                value=prev_enabled,
+                key="bp_guard_enabled_widget"
+            )
+        with cols_bp[1]:
+            txt_val = st.text_input(
+                "Threshold (0.00–1.00)",
+                value=f"{prev_value:.2f}",
+                key="bp_guard_text"
+            )
+            try:
+                txt_float = float(txt_val)
+            except Exception:
+                txt_float = prev_value
+            txt_float = max(0.0, min(1.0, txt_float))
+
+        # Update state keys AFTER widgets exist
+        st.session_state["bp_guard_enabled"] = bool(enabled_widget)
+        st.session_state["bp_guard_value"] = float(txt_float)
+
+        # Detect changes
+        changed = (
+            set(obj_props) != set(st.session_state.get("obj_props", []))
+            or any(st.session_state.get("obj_dirs", {}).get(k) != v for k, v in new_dirs.items())
+            or int(top_k_widget_val) != int(st.session_state.get("top_k", 1))
+            or bool(enabled_widget) != prev_enabled
+            or abs(float(txt_float) - float(prev_value)) > 1e-12
+        )
+
+        st.session_state.obj_props = obj_props
+        st.session_state.obj_dirs = new_dirs
+        st.session_state.top_k = int(top_k_widget_val)
+
+        if changed:
+            st.session_state.pareto_ids = []
+            st.session_state.topk_ids = []
+            st.session_state.selected_molecule_id = None
+            st.rerun()
 
     # ── Tracked controls ──
     st.markdown("---")
@@ -585,7 +571,7 @@ def _render_welcome_viz():
     import plotly.graph_objects as go
     fig = go.Figure()
     fig.update_layout(
-        height=700, margin=dict(l=60, r=60, t=20, b=60),
+        height=550, margin=dict(l=60, r=60, t=20, b=60),
         xaxis=dict(visible=False), yaxis=dict(visible=False),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
         transition={'duration': 0}, uirevision="stay"
@@ -642,7 +628,7 @@ def _render_animated_enumeration():
     fig_empty.update_xaxes(range=x_range, autorange=False)
     fig_empty.update_yaxes(range=y_range, autorange=False)
     fig_empty.update_layout(
-        height=700, margin=dict(l=60, r=60, t=20, b=60),
+        height=550, margin=dict(l=60, r=60, t=20, b=60),
         showlegend=True, transition={'duration': 0}, uirevision="stay"
     )
     chart_placeholder.plotly_chart(fig_empty, use_container_width=True, config={'displayModeBar': False})
@@ -663,7 +649,7 @@ def _render_animated_enumeration():
         fig.update_xaxes(range=x_range, autorange=False)
         fig.update_yaxes(range=y_range, autorange=False)
         fig.update_layout(
-            height=700, margin=dict(l=60, r=60, t=20, b=60),
+            height=550, margin=dict(l=60, r=60, t=20, b=60),
             showlegend=True, transition={'duration': 0}, uirevision="stay"
         )
 
@@ -768,7 +754,7 @@ def _render_results_viz():
         animate_transition=bool(animate_axes)
     )
     fig.update_layout(
-        height=700, margin=dict(l=60, r=60, t=20, b=60),
+        height=550, margin=dict(l=60, r=60, t=20, b=60),
         showlegend=True,
         transition={'duration': 0 if not animate_axes else 200},
         uirevision="stay"
@@ -806,6 +792,31 @@ def _render_results_viz():
         fig, key="main_scatter", on_select="rerun",
         use_container_width=True, config={'displayModeBar': False}
     )
+
+    # ── Axis selectors (side-by-side below graph) ──
+    axis_options = SCATTER_COLUMNS
+    axis_labels = [_label(c) for c in axis_options]
+
+    axis_cols = st.columns(2)
+    with axis_cols[0]:
+        current_x = st.session_state.get("x_axis", "Half_Life (h)")
+        x_idx = axis_options.index(current_x) if current_x in axis_options else 0
+        x_label = st.selectbox("X-Axis", axis_labels, index=x_idx, key="x_axis_selector")
+        new_x = axis_options[axis_labels.index(x_label)]
+        if new_x != st.session_state.get("x_axis"):
+            st.session_state.x_axis = new_x
+            st.session_state.selected_molecule_id = None
+            st.rerun()
+
+    with axis_cols[1]:
+        current_y = st.session_state.get("y_axis", "hERG (nM)")
+        y_idx = axis_options.index(current_y) if current_y in axis_options else 0
+        y_label = st.selectbox("Y-Axis", axis_labels, index=y_idx, key="y_axis_selector")
+        new_y = axis_options[axis_labels.index(y_label)]
+        if new_y != st.session_state.get("y_axis"):
+            st.session_state.y_axis = new_y
+            st.session_state.selected_molecule_id = None
+            st.rerun()
 
     # Manual selection toggling (track/untrack)
     clicked_id = _resolve_clicked_id(event, df_scored)
