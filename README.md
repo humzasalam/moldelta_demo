@@ -67,10 +67,6 @@ moldelta-demo/
     └── children_2.json   # Brexpiprazole children (50)
 ```
 
-## License
-
-MIT License - see LICENSE file for details
-
 ## Built With
 
 Made with ❤️ for drug discovery
