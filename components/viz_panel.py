@@ -291,6 +291,8 @@ def _get_filtered_df() -> pd.DataFrame:
     df = all_df[all_df["id"].isin(displayed_ids)].copy()
     df["__ord"] = df.index
     df = df.sort_values("__ord").drop(columns="__ord")
+    # Apply binding guardrail: remove molecules below threshold from display
+    df = _apply_binding_guardrail(df)
     return df
 
 
@@ -348,8 +350,8 @@ def _compute_and_cache_highlights(df: pd.DataFrame):
         best_val = sorted_df[score_col].iloc[0]
         pareto_ids = sorted_df[sorted_df[score_col] == best_val]["id"].tolist()
 
-        # Top-K: only molecules tied for best, capped at K
-        topk_ids = sorted_df[sorted_df[score_col] == best_val]["id"].head(k).tolist()
+        # Top-K: best eligible molecules, capped at K
+        topk_ids = sorted_df["id"].head(k).tolist()
 
         df2["pareto"] = df2["id"].isin(pareto_ids)
 
