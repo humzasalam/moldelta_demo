@@ -905,11 +905,15 @@ def _resolve_clicked_id(event, df_scored: pd.DataFrame):
 
 def _render_hero_card(df_scored, topk_ids, parent):
     """Render a 'Best Discovery' card showing improvements for selected objectives + binding."""
-    if not topk_ids:
+    if topk_ids:
+        best_id = topk_ids[0]
+        best_row = df_scored[df_scored["id"] == best_id]
+    elif "binding_probability" in df_scored.columns and not df_scored.empty:
+        # No objectives selected — pick best by binding strength
+        best_row = df_scored.nlargest(1, "binding_probability")
+    else:
         return
 
-    best_id = topk_ids[0]
-    best_row = df_scored[df_scored["id"] == best_id]
     if best_row.empty:
         return
     best = best_row.iloc[0]
