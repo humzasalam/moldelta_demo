@@ -1011,11 +1011,10 @@ def _render_results_viz():
             st.session_state.selected_molecule_id = None
             st.rerun()
 
-    # Click opens molecule dialog directly
+    # Click opens molecule dialog directly (no extra rerun — on_select already triggered one)
     clicked_id = _resolve_clicked_id(event, df_scored)
     if clicked_id:
         st.session_state.selected_molecule_id = clicked_id
-        st.rerun()
 
     sel_id = st.session_state.get("selected_molecule_id", None)
     if sel_id and sel_id in df_scored["id"].values:
