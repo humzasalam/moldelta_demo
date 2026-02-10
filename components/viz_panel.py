@@ -501,6 +501,8 @@ def render_control_panel():
     # ── Logo + title ──
     st.markdown('<div class="moldelta-logo">MolDelta</div>', unsafe_allow_html=True)
     st.markdown('<div class="tagline">AI-guided chemical edits for faster drug design</div>', unsafe_allow_html=True)
+    target_name = parent.get("target_name", "Target")
+    st.markdown(f'<div class="target-title">{target_name}</div>', unsafe_allow_html=True)
     st.markdown("---")
 
     # ── Step indicator ──
