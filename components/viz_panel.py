@@ -1052,7 +1052,6 @@ def _render_results_viz():
         selection_mode=["points"],
         use_container_width=True, config={'displayModeBar': False}
     )
-    st.markdown('<div class="hint-text">Click any point to view molecule details</div>', unsafe_allow_html=True)
 
     # ── Axis selectors (side-by-side below graph) ──
     axis_options = SCATTER_COLUMNS
